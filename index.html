@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拳击认知地图 · 带宽溢出计划</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Shippori+Mincho:wght@400;500;600&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4efe6;
+    --paper-deep: #ebe4d6;
+    --ink: #2a2824;
+    --ink-soft: #5a5448;
+    --ink-faint: #8a8270;
+    --rust: #a44a3f;
+    --moss: #6b7a5a;
+    --indigo: #3c4a5c;
+    --gold: #a87c3f;
+    --line: rgba(42, 40, 36, 0.15);
+    --line-soft: rgba(42, 40, 36, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'EB Garamond', 'Shippori Mincho', 'Songti SC', serif;
+    overflow-x: hidden;
+  }
+
+  /* Grainy paper texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(168, 124, 63, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(107, 122, 90, 0.04) 0%, transparent 40%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.15 0 0 0 0 0.14 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: multiply;
+  }
+
+  .page {
+    position: relative;
+    z-index: 2;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 60px 40px 120px;
+  }
+
+  /* Header */
+  .masthead {
+    position: relative;
+    padding-bottom: 50px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .masthead .series {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 12px;
+    letter-spacing: 0.4em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .masthead h1 {
+    font-family: 'Zhi Mang Xing', 'Shippori Mincho', cursive;
+    font-size: clamp(54px, 9vw, 108px);
+    line-height: 0.95;
+    font-weight: 400;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+    margin-bottom: 16px;
+  }
+
+  .masthead .subtitle {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--ink-soft);
+    max-width: 600px;
+    line-height: 1.5;
+  }
+
+  .masthead .meta {
+    position: absolute;
+    top: 0;
+    right: 0;
+    text-align: right;
+    font-family: 'Caveat', cursive;
+    font-size: 18px;
+    color: var(--ink-faint);
+    line-height: 1.4;
+    transform: rotate(-2deg);
+  }
+
+  .masthead .meta .date {
+    display: block;
+    font-size: 24px;
+    color: var(--rust);
+  }
+
+  /* Intro */
+  .intro {
+    max-width: 680px;
+    margin: 40px 0 80px;
+    font-size: 17px;
+    line-height: 1.8;
+    color: var(--ink-soft);
+  }
+  .intro p + p { margin-top: 16px; }
+  .intro em {
+    font-family: 'Caveat', cursive;
+    font-style: normal;
+    font-size: 20px;
+    color: var(--rust);
+  }
+
+  /* Map canvas */
+  .map-wrap {
+    position: relative;
+    min-height: 1400px;
+    margin-top: 40px;
+  }
+
+  .map-caption {
+    font-family: 'Caveat', cursive;
+    font-size: 22px;
+    color: var(--ink-faint);
+    margin-bottom: 40px;
+    padding-left: 30px;
+    position: relative;
+  }
+  .map-caption::before {
+    content: '✦';
+    position: absolute;
+    left: 0;
+    color: var(--gold);
+  }
+
+  /* Phase node */
+  .node {
+    position: absolute;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  .node .dot-wrap {
+    position: relative;
+    width: 56px;
+    height: 56px;
+  }
+
+  .node .dot {
+    position: absolute;
+    inset: 16px;
+    border-radius: 50%;
+    background: var(--ink);
+    transition: all 0.3s ease;
+  }
+
+  .node .ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    transition: all 0.4s ease;
+  }
+
+  .node .ring-outer {
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+    border: 1px dashed var(--line-soft);
+    opacity: 0;
+    transition: all 0.4s ease;
+  }
+
+  .node:hover .dot { background: var(--rust); transform: scale(1.2); }
+  .node:hover .ring { border-color: var(--rust); transform: scale(1.15); }
+  .node:hover .ring-outer { opacity: 1; transform: scale(1.1) rotate(45deg); }
+
+  .node.active .dot { background: var(--rust); }
+  .node.active .ring { border-color: var(--rust); }
+  .node.active .ring-outer { opacity: 1; }
+
+  .node .label {
+    position: absolute;
+    left: 72px;
+    top: 10px;
+    white-space: nowrap;
+  }
+
+  .node .phase-num {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+    margin-bottom: 2px;
+  }
+
+  .node .phase-name {
+    font-family: 'Shippori Mincho', 'Songti SC', serif;
+    font-size: 22px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .node .phase-time {
+    font-family: 'Caveat', cursive;
+    font-size: 16px;
+    color: var(--ink-faint);
+    margin-top: 4px;
+  }
+
+  /* Node positions */
+  #node-1 { top: 60px; left: 80px; }
+  #node-2 { top: 280px; left: 320px; }
+  #node-3 { top: 500px; left: 140px; }
+  #node-4 { top: 720px; left: 480px; }
+  #node-5 { top: 960px; left: 220px; }
+  #node-6 { top: 1180px; left: 560px; }
+
+  /* Connecting paths (SVG) */
+  .paths {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .paths path {
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    stroke-dasharray: 4 6;
+    opacity: 0.5;
+  }
+
+  /* Detail panel */
+  .panel-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(42, 40, 36, 0.4);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+  }
+
+  .panel-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    width: min(720px, 90vw);
+    max-height: 85vh;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 60px 60px 50px;
+    overflow-y: auto;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.35s cubic-bezier(0.2, 0.8, 0.3, 1);
+    z-index: 11;
+    box-shadow: 0 40px 80px rgba(42, 40, 36, 0.2), 0 0 0 1px rgba(42, 40, 36, 0.06);
+  }
+
+  .panel.active {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: 12px;
+    border: 1px solid var(--line-soft);
+    pointer-events: none;
+  }
+
+  .panel-close {
+    position: absolute;
+    top: 24px;
+    right: 28px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ink-faint);
+    font-family: 'EB Garamond', serif;
+    font-size: 24px;
+    transition: color 0.2s;
+  }
+  .panel-close:hover { color: var(--rust); }
+
+  .panel .phase-marker {
+    font-family: 'Caveat', cursive;
+    font-size: 24px;
+    color: var(--rust);
+    margin-bottom: 4px;
+  }
+
+  .panel h2 {
+    font-family: 'Shippori Mincho', 'Songti SC', serif;
+    font-size: 38px;
+    font-weight: 500;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+
+  .panel .time-range {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-faint);
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .panel .section {
+    margin-bottom: 28px;
+  }
+
+  .panel h3 {
+    font-family: 'Caveat', cursive;
+    font-size: 22px;
+    color: var(--rust);
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+
+  .panel p {
+    font-family: 'EB Garamond', 'Shippori Mincho', 'Songti SC', serif;
+    font-size: 16px;
+    line-height: 1.85;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+  }
+
+  .panel .moment {
+    padding: 20px 24px;
+    background: var(--paper-deep);
+    border-left: 2px solid var(--gold);
+    margin: 16px 0;
+    font-family: 'Shippori Mincho', 'Songti SC', serif;
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--ink);
+  }
+  .panel .moment .tag {
+    display: block;
+    font-family: 'Caveat', cursive;
+    font-size: 16px;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+  }
+
+  /* Concepts section at bottom */
+  .concepts {
+    margin-top: 140px;
+    padding-top: 60px;
+    border-top: 1px solid var(--line);
+  }
+
+  .concepts-title {
+    font-family: 'Caveat', cursive;
+    font-size: 32px;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+
+  .concepts-sub {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-faint);
+    margin-bottom: 50px;
+  }
+
+  .concept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 40px 50px;
+  }
+
+  .concept {
+    position: relative;
+  }
+
+  .concept-num {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .concept h4 {
+    font-family: 'Shippori Mincho', 'Songti SC', serif;
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 14px;
+    color: var(--ink);
+  }
+
+  .concept p {
+    font-family: 'EB Garamond', 'Shippori Mincho', 'Songti SC', serif;
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--ink-soft);
+  }
+
+  /* Footer note */
+  .footer-note {
+    margin-top: 120px;
+    padding-top: 50px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-family: 'Caveat', cursive;
+    font-size: 18px;
+    color: var(--ink-faint);
+  }
+
+  .footer-note .signature {
+    font-size: 28px;
+    color: var(--rust);
+    transform: rotate(-3deg);
+  }
+
+  /* Empty slots for future */
+  .future {
+    margin-top: 60px;
+    padding: 40px;
+    border: 1px dashed var(--line);
+    max-width: 680px;
+  }
+
+  .future h4 {
+    font-family: 'Caveat', cursive;
+    font-size: 24px;
+    color: var(--ink-faint);
+    margin-bottom: 12px;
+  }
+
+  .future p {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink-faint);
+  }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    .page { padding: 30px 20px 80px; }
+    .masthead .meta { position: relative; text-align: left; margin-top: 20px; transform: none; }
+    .masthead { padding-bottom: 30px; }
+    .map-wrap { min-height: auto; }
+    .node { position: relative !important; top: auto !important; left: auto !important; margin-bottom: 32px; display: flex; align-items: center; }
+    .paths { display: none; }
+    .panel { padding: 40px 24px 30px; width: 94vw; max-height: 90vh; }
+    .panel h2 { font-size: 28px; }
+    .concept-grid { gap: 32px; }
+  }
+
+  /* Entrance animation - subtle only, no initial hiding */
+  @keyframes fadeUp {
+    0% { opacity: 0.4; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .masthead, .intro, .map-caption, .node, .concepts, .footer-note {
+    animation: fadeUp 0.8s ease-out;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Masthead -->
+  <header class="masthead">
+    <div class="series">A Practitioner's Map</div>
+    <h1>拳击认知<br>地图</h1>
+    <p class="subtitle">一个普通练习者，<br>近一年来与拳击关系的迁徙。</p>
+    <div class="meta">
+      <span class="date">A Map</span>
+      未完成的 ·<br>正在画下去
+    </div>
+  </header>
+
+  <!-- Intro -->
+  <section class="intro">
+    <p>
+      从第一次走进拳馆，到现在将近一年。
+      中间有过冷淡期，有过想笑的时刻，有过突然开窍的瞬间。
+    </p>
+    <p>
+      这张地图不是训练日志，不是技术笔记。
+      它是一张 <em>关系的迁徙图</em> ——记录一个练习者与拳击的关系，
+      如何从"消遣"走到"合奏"，从"合奏"走到"对话"，
+      再走到某个还没完全看清的远方。
+    </p>
+    <p>
+      点击节点，进入那个阶段。
+    </p>
+  </section>
+
+  <!-- Map -->
+  <div class="map-wrap">
+    <div class="map-caption">从那扇门走进来 · 到这里</div>
+
+    <!-- SVG paths between nodes -->
+    <svg class="paths" preserveAspectRatio="none">
+      <path d="M 108 116 Q 200 180 348 336" />
+      <path d="M 348 336 Q 280 420 168 556" />
+      <path d="M 168 556 Q 300 640 508 776" />
+      <path d="M 508 776 Q 380 860 248 1016" />
+      <path d="M 248 1016 Q 400 1100 588 1236" />
+    </svg>
+
+    <!-- Nodes -->
+    <div class="node" id="node-1" data-phase="1">
+      <div class="dot-wrap">
+        <div class="ring-outer"></div>
+        <div class="ring"></div>
+        <div class="dot"></div>
+      </div>
+      <div class="label">
+        <div class="phase-num">PHASE I</div>
+        <div class="phase-name">合奏期</div>
+        <div class="phase-time">最初的几个月</div>
+      </div>
+    </div>
+
+    <div class="node" id="node-2" data-phase="2">
+      <div class="dot-wrap">
+        <div class="ring-outer"></div>
+        <div class="ring"></div>
+        <div class="dot"></div>
+      </div>
+      <div class="label">
+        <div class="phase-num">PHASE II</div>
+        <div class="phase-name">悬置期</div>
+        <div class="phase-time">不上瘾，但不离开</div>
+      </div>
+    </div>
+
+    <div class="node" id="node-3" data-phase="3">
+      <div class="dot-wrap">
+        <div class="ring-outer"></div>
+        <div class="ring"></div>
+        <div class="dot"></div>
+      </div>
+      <div class="label">
+        <div class="phase-num">PHASE III</div>
+        <div class="phase-name">转折点</div>
+        <div class="phase-time">换了一个拳馆</div>
+      </div>
+    </div>
+
+    <div class="node" id="node-4" data-phase="4">
+      <div class="dot-wrap">
+        <div class="ring-outer"></div>
+        <div class="ring"></div>
+        <div class="dot"></div>
+      </div>
+      <div class="label">
+        <div class="phase-num">PHASE IV</div>
+        <div class="phase-name">对话期</div>
+        <div class="phase-time">三件事同时开始</div>
+      </div>
+    </div>
+
+    <div class="node" id="node-5" data-phase="5">
+      <div class="dot-wrap">
+        <div class="ring-outer"></div>
+        <div class="ring"></div>
+        <div class="dot"></div>
+      </div>
+      <div class="label">
+        <div class="phase-num">PHASE V</div>
+        <div class="phase-name">自然之力</div>
+        <div class="phase-time">刚触到 · 被打断</div>
+      </div>
+    </div>
+
+    <div class="node" id="node-6" data-phase="6">
+      <div class="dot-wrap">
+        <div class="ring-outer"></div>
+        <div class="ring"></div>
+        <div class="dot"></div>
+      </div>
+      <div class="label">
+        <div class="phase-num">PHASE VI</div>
+        <div class="phase-name">整合期</div>
+        <div class="phase-time">此刻</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Future slot -->
+  <div class="future">
+    <h4>之后的节点</h4>
+    <p>
+      等脚好了，等回到拳馆，等又看见一些新的东西——
+      这里会长出 Phase VII、VIII、IX。
+      地图不是完成的东西，是继续画下去的东西。
+    </p>
+  </div>
+
+  <!-- Concepts -->
+  <section class="concepts">
+    <div class="concepts-title">底层的几个发现</div>
+    <div class="concepts-sub">—— 在这一年里慢慢浮出水面的东西</div>
+
+    <div class="concept-grid">
+      <div class="concept">
+        <div class="concept-num">CONCEPT · 01</div>
+        <h4>从客体到主体</h4>
+        <p>
+          有些人长期习惯于观察别人的需要、配合别人的节奏、
+          收缩自己来适应环境——以"客体"的姿态存在。
+          拳击是少数能让人作为"主体"站出来的场域，
+          不是因为它让人变强，
+          而是因为它逼人必须完整地在场。
+        </p>
+      </div>
+
+      <div class="concept">
+        <div class="concept-num">CONCEPT · 02</div>
+        <h4>从合奏到对话</h4>
+        <p>
+          早期爱打靶，是爱那种"跟上节拍"的合奏感，像贝斯跟底鼓。
+          后来爱对练，是爱两个乐手互相抛接的 call and response——
+          不再是跟着节拍，而是共同创造节拍。
+        </p>
+      </div>
+
+      <div class="concept">
+        <div class="concept-num">CONCEPT · 03</div>
+        <h4>三重相遇</h4>
+        <p>
+          敢看对方的眼睛，是和另一个主体相遇。<br>
+          敢看镜子里的自己，是和自己相遇。<br>
+          琢磨 combo 的逻辑，是和这门手艺相遇。<br>
+          三者是同一种能力，在不同方向上展开。
+        </p>
+      </div>
+
+      <div class="concept">
+        <div class="concept-num">CONCEPT · 04</div>
+        <h4>不靠痛苦确认存在</h4>
+        <p>
+          很多人有过这样的隐秘逻辑——
+          要先受苦，才配享有。要先疼，才确认自己活着。
+          拳击给了一个新的锚点：
+          身体在场，本身就是"我在这里"，
+          不需要痛苦作为底色。
+        </p>
+      </div>
+
+      <div class="concept">
+        <div class="concept-num">CONCEPT · 05</div>
+        <h4>受控的极端，作为实验室</h4>
+        <p>
+          拳击是一个实验室，
+          那些"相对安全但相对极端"的环境都是。
+          要的不是危险本身，
+          而是只有在那里，
+          平时被日常覆盖住的真正反应才会浮出来。
+          实验的对象，是自己。
+        </p>
+      </div>
+
+      <div class="concept">
+        <div class="concept-num">CONCEPT · 06</div>
+        <h4>一条自己的"道"</h4>
+        <p>
+          不是日本传统意义上的武道，
+          也不是职业拳击的赛道。
+          是一条自己长出来的路——
+          混合了拳击的身体实验室、加缪式的存在追问、
+          对客体/主体的觉察。
+          它不追求赢，也不追求 KO。
+          它追求的是——把一个习惯做客体的人，
+          炼成一个完整的主体。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer-note">
+    <div>
+      地图未完 ·<br>
+      继续画下去
+    </div>
+    <div class="signature">✦</div>
+  </footer>
+
+</div>
+
+<!-- Detail panel overlay -->
+<div class="panel-overlay" id="overlay"></div>
+
+<!-- Detail panels -->
+<div class="panel" id="panel">
+  <button class="panel-close" id="close">✕</button>
+  <div class="phase-marker" id="panel-marker">PHASE I</div>
+  <h2 id="panel-title">阶段标题</h2>
+  <div class="time-range" id="panel-time">时间区间</div>
+  <div id="panel-body"></div>
+</div>
+
+<script>
+const phaseData = {
+  1: {
+    marker: 'PHASE I',
+    title: '合奏期',
+    time: '最初的几个月 · 一对一 · 打靶',
+    body: `
+      <div class="section">
+        <h3>关键词</h3>
+        <p>节拍 · 打靶 · 音游感 · 合奏 · 外部驱动</p>
+      </div>
+      <div class="section">
+        <h3>那时候</h3>
+        <p>
+          刚上课的几节课特别兴奋，尤其是第五六节。
+          私教只带打靶，"啪啪啪啪"那种卡点感很爽。
+          后来意识到，那像极了乐队合奏的感觉——
+          鼓声慢慢进来，贝斯跟上去，
+          大家一起进场或一起收。
+          拳击那时候对一个人来说就是这个。
+        </p>
+        <p>
+          但到六七节课之后就平淡了。
+          每次打的都是一样的组合，进步感消失，
+          尝试了别的课也发现大同小异。
+        </p>
+      </div>
+      <div class="moment">
+        <span class="tag">标志性画面</span>
+        第一次上课看到别人空击，
+        觉得像匹配大厅一样——
+        一群人对着空气挥拳，特别滑稽。
+        那时候还是旁观者视角，觉得这事儿有点荒诞。
+      </div>
+      <div class="section">
+        <h3>这个阶段的底层</h3>
+        <p>
+          拳击在这个阶段是"节拍游戏"——
+          靠外部（教练、靶、节奏）来建立和它的关系。
+          爽感是反应式的，需要被召唤。
+          一旦节拍停下来，关系就悬置了。
+        </p>
+      </div>
+    `
+  },
+  2: {
+    marker: 'PHASE II',
+    title: '悬置期',
+    time: '不上瘾 · 但不放弃',
+    body: `
+      <div class="section">
+        <h3>关键词</h3>
+        <p>平淡 · 消遣 · 执着 · 等待</p>
+      </div>
+      <div class="section">
+        <h3>那时候</h3>
+        <p>
+          对拳击没那么上瘾了，但每周还是会去练一两次。
+          它变成日常里的一项消遣，不是热爱。
+          课上会琢磨一下，下课就不想了。
+          既不接着练，也不钻研。
+          没想练到什么水平，就是在那儿待着。
+        </p>
+      </div>
+      <div class="moment">
+        <span class="tag">事后才明白</span>
+        这段"悬着"的时期其实不浪费——
+        它让身体记忆保持在线，等着下一次被点燃。
+        不是所有的存在都必须热烈。
+      </div>
+      <div class="section">
+        <h3>这个阶段的底层</h3>
+        <p>
+          合奏模式已经从内部掉出来了，
+          但新的关系还没找到。
+          不走，是因为这个人比较执着；
+          也不深入，是因为还没有一个契机。
+        </p>
+      </div>
+    `
+  },
+  3: {
+    marker: 'PHASE III',
+    title: '转折点',
+    time: '换了一个拳馆',
+    body: `
+      <div class="section">
+        <h3>关键词</h3>
+        <p>转折 · 新拳馆 · 团课 · 对练 · 释放</p>
+      </div>
+      <div class="section">
+        <h3>那时候</h3>
+        <p>
+          生活里发生了一些事，
+          需要一个能让人沉进去的地方。
+          于是换去了另一家拳馆——
+          不是一对一的私教课了，是团课和对练。
+          那个时候第一次意识到——
+          打拳可以是一种释放。
+        </p>
+      </div>
+      <div class="moment">
+        <span class="tag">为什么这里是转折</span>
+        不是因为重新爱上了拳击，
+        而是因为新的模式提供了之前完全没有的东西：
+        真实的对手。
+        从此之后，拳击不再是节拍游戏。
+      </div>
+      <div class="section">
+        <h3>这个阶段的底层</h3>
+        <p>
+          悬置期之所以能结束，
+          是因为生活给了一个足够大的撬动。
+          旧的关系结构松动的瞬间，
+          新的自我结构才有空间开始长。
+          有时候你以为是环境换了，
+          其实是你换了。
+        </p>
+      </div>
+    `
+  },
+  4: {
+    marker: 'PHASE IV',
+    title: '对话期',
+    time: '三件事同时开始',
+    body: `
+      <div class="section">
+        <h3>关键词</h3>
+        <p>主动 · 对视 · 镜子 · combo 逻辑 · 主体</p>
+      </div>
+      <div class="section">
+        <h3>三件同时开始发生的事</h3>
+        <p>
+          <strong>1. 敢看对方的眼睛了。</strong>
+          对练中的某一刻，发现自己在看对方的眼睛——
+          没有躲、没有收缩。那一刻就知道成了。
+          那不是狂喜，是一种轻松带点紧张的平静。
+          两个主体真的相遇了。
+        </p>
+        <p>
+          <strong>2. 敢看镜子里的自己。</strong>
+          之前拳馆人少的时候，对着镜子练，
+          会发现自己根本不敢看——姿势太丑了。
+          后来慢慢敢看了，把镜子里的自己当作另一个对手，
+          找到了 shadowboxing 的感觉。
+        </p>
+        <p>
+          <strong>3. 开始琢磨 combo 的逻辑。</strong>
+          "前直、后直、右侧闪、后直、前摆"——
+          这个组合最初不理解，后来越琢磨越有意思。
+          它里面藏着一段完整的两人对话：
+          我说话—你说话—我听—我再说。
+          这是爵士乐手的 call and response。
+        </p>
+      </div>
+      <div class="moment">
+        <span class="tag">这个阶段的真正含义</span>
+        三件事表面上不相关，
+        底下是同一种能力在不同方向上展开：
+        把对方、把自己、把这件事，
+        都当成真实的存在去认真对待。
+        而不是用来消遣、用来配合、用来逃避的背景板。
+      </div>
+    `
+  },
+  5: {
+    marker: 'PHASE V',
+    title: '自然之力',
+    time: '刚触到 · 被打断',
+    body: `
+      <div class="section">
+        <h3>关键词</h3>
+        <p>自然 · 放松 · 路上空击 · 内化 · 突发奇想</p>
+      </div>
+      <div class="section">
+        <h3>开始发生的事</h3>
+        <p>
+          训练了将近一年之后，
+          某次组合里第一次感觉到
+          一种自然、放松的力量——
+          不是硬使劲，是身体自己把力发出去。
+        </p>
+        <p>
+          更有意思的是拳馆之外的事情。
+          走在路上、听着播客，
+          会突然想起前两天学的 combo，
+          然后就情不自禁地停下来打一段。
+          脑子在顺动作，身体也跟着顺。
+        </p>
+      </div>
+      <div class="moment">
+        <span class="tag">这个质变的真正意义</span>
+        早期那种兴奋是"上完课才有"——反应式的。<br>
+        现在这个是"身体自己想起来"——内生的。<br>
+        拳击不再是一件"去做的事"，<br>
+        它变成了这个人的一部分。<br>
+        和哼一段旋律、写一段代码是同一类东西了。
+      </div>
+      <div class="section">
+        <h3>然后崴脚了</h3>
+        <p>
+          身体刚要起飞，脚先踩了个刹车。
+          听起来有点好笑——
+          换一年前可能会陷进去，
+          会自责、会焦虑、会用它来反刍。
+          但现在能笑出来。
+          这个轻盈感不是装的，是真的变了。
+        </p>
+      </div>
+    `
+  },
+  6: {
+    marker: 'PHASE VI',
+    title: '整合期',
+    time: '此刻 · 恢复中',
+    body: `
+      <div class="section">
+        <h3>关键词</h3>
+        <p>停顿 · 整合 · 回看 · 意识层的沉淀</p>
+      </div>
+      <div class="section">
+        <h3>此刻</h3>
+        <p>
+          脚崴着，训练停了。
+          这段时间变成了一个意料之外的礼物——
+          身体被迫停下来，那些在训练中一闪而过的体验，
+          终于有空间浮上来，被重新品尝。
+        </p>
+        <p>
+          运动员恢复期有个说法：
+          <em>身体在休息，但神经系统在整合。</em>
+          这就是这段时间——不练拳，但拳击在身上继续长。
+        </p>
+      </div>
+      <div class="moment">
+        <span class="tag">这段时间想清楚的事</span>
+        ·  爱拳击不是因为痛苦，是因为它让主体性长出来<br>
+        ·  不为赢而打，为"照见自己"而打——这是一条"道"<br>
+        ·  在"燃烧"这件事上，所有人都是平等的<br>
+        ·  拳击是实验室，还有别的实验室在等待<br>
+        ·  脚会好，地图会继续画下去
+      </div>
+      <div class="section">
+        <h3>这个阶段不叫训练停滞期</h3>
+        <p>
+          它叫整合期。
+          该练就练，该养就养。
+          这条路上，有"练"也有"养"，
+          现在是养期。
+        </p>
+      </div>
+    `
+  }
+};
+
+const nodes = document.querySelectorAll('.node');
+const panel = document.getElementById('panel');
+const overlay = document.getElementById('overlay');
+const closeBtn = document.getElementById('close');
+
+function openPanel(phaseId) {
+  const data = phaseData[phaseId];
+  document.getElementById('panel-marker').textContent = data.marker;
+  document.getElementById('panel-title').textContent = data.title;
+  document.getElementById('panel-time').textContent = data.time;
+  document.getElementById('panel-body').innerHTML = data.body;
+  panel.classList.add('active');
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+
+  nodes.forEach(n => n.classList.remove('active'));
+  document.getElementById(`node-${phaseId}`).classList.add('active');
+}
+
+function closePanel() {
+  panel.classList.remove('active');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+  nodes.forEach(n => n.classList.remove('active'));
+}
+
+nodes.forEach(node => {
+  node.addEventListener('click', () => {
+    openPanel(node.dataset.phase);
+  });
+});
+
+closeBtn.addEventListener('click', closePanel);
+overlay.addEventListener('click', closePanel);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePanel();
+});
+</script>
+
+</body>
+</html>
